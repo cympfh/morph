@@ -111,7 +111,7 @@ class Project:
             click.secho(f"# {s} ({len(items_filtered)} items)", fg="bright_black")
             for (id, name, description, state, level) in items_filtered:
                 click.echo(
-                    f"{name} @{id}, description = {description}, state = {state}, level = {level}"
+                    f"{name} @{id}, description = {description}, level = {level}"
                 )
             if len(items_filtered) == 0:
                 click.echo("No items")
@@ -279,9 +279,9 @@ class Item:
             sys.exit(1)
 
         self.identify()
-        click.echo(f"Name = {self.name}, id = @{self.id}")
+        click.echo(f"name = {self.name}\nid = @{self.id}")
         click.echo(f"description = {self.description}")
-        click.echo(f"State = {self.state}, Level = {self.level}")
+        click.echo(f"State = {self.state}\nLevel = {self.level}")
 
         rdb = RDB(self.project.dbfile)
         transitions = rdb.execute(
@@ -293,8 +293,9 @@ class Item:
             self.id,
         )
         click.echo("History:")
-        for (at, _, state, level) in transitions:
-            click.echo(f"  -> {state}/{level} -- {at}")
+        for i, (at, _, state, level) in enumerate(transitions):
+            mark = click.style("  " if i == 0 else "->", fg="bright_yellow")
+            click.echo(f"{mark} {state}/{level} -- {at}")
 
 
 def from_name(name: str) -> Union[Project, Item]:

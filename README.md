@@ -76,12 +76,14 @@ OPTIONS:
 
 ### Delete Item
 
-Delete an item and its history completely.
+Delete an item and its history **completely**.
 
 ```bash
 morph rm <PROJECT_NAME>/<ITEM_NAME>
 morph rm <PROJECT_NAME>/<ITEM_ID>
 ```
+
+If you just want to hide items, `ABORT` is convenient.
 
 ### Delete Project
 
