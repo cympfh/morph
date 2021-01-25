@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import json
 import os
 import os.path
 import sqlite3
@@ -61,6 +62,7 @@ class RDB:
 @dataclass
 class Project:
     name: str
+    dbfile: str = field(init=False)
 
     def __post_init__(self):
         home = os.environ["HOME"]
@@ -86,13 +88,13 @@ class Project:
 
         os.unlink(self.dbfile)
 
-    def stat(self, state: Optional[str]):
+    def stat(self, state: Optional[str], as_json: bool):
         if not self.is_exist():
             click.echo(f"Error: Project {self.name} doesn't exist", err=True)
             sys.exit(1)
 
         rdb = RDB(self.dbfile)
-        items = rdb.execute(
+        rows = rdb.execute(
             """
             SELECT
                 items.id, items.name, items.description, subq.state, subq.level
@@ -105,30 +107,57 @@ class Project:
             ORDER BY subq.at DESC
         """
         )
+        items = [
+            Item(
+                self,
+                id=id,
+                name=name,
+                description=description,
+                state=state,
+                level=level,
+            )
+            for (id, name, description, state, level) in rows
+        ]
+
         states = ["TODO", "WIP", "DONE", "ABORT"] if state is None else [state]
+        res = {}
         for s in states:
-            items_filtered = [item for item in items if item[3] == s]
-            click.secho(f"# {s} ({len(items_filtered)} items)", fg="bright_black")
-            for (id, name, description, state, level) in items_filtered:
-                click.echo(
-                    f"{name} @{id}, description = {description}, level = {level}"
-                )
-            if len(items_filtered) == 0:
-                click.echo("No items")
+            res[s] = [item for item in items if item.state == s]
+
+        if as_json:
+            print(json.dumps(res, cls=ItemJSONEncoder))
+
+        else:
+            for s in states:
+                click.secho(f"# {s} ({len(res[s])} items)", fg="bright_black")
+                for item in res[s]:
+                    click.echo(
+                        f"{item.name} @{item.id}, description = {item.description}, level = {item.level}"
+                    )
+                if len(res[s]) == 0:
+                    click.secho("No items", fg="black")
 
 
 @dataclass
 class Item:
     project: Project
-    name: Optional[str]
-    id: Optional[int]
-    description: str
-
-    state: str = field(init=False)
-    level: int = field(init=False)
+    name: Optional[str] = field(default=None)
+    id: Optional[int] = field(default=None)
+    description: Optional[str] = field(default=None)
+    state: Optional[str] = field(default=None)
+    level: Optional[int] = field(default=None)
 
     def __post_init__(self):
         assert self.name is not None or self.id is not None, "Specify Name or ID"
+
+    def to_json(self) -> dict:
+        return {
+            "name": self.name,
+            "id": self.id,
+            "description": self.description,
+            "state": self.state,
+            "level": self.level,
+        }
 
     def touch(self):
         assert self.name is not None, "Missed item name"
@@ -298,14 +327,21 @@ class Item:
             click.echo(f"{mark} {state}/{level} -- {at}")
 
 
+class ItemJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Item):
+            return obj.to_json()
+        return super().default(obj)
+
+
 def from_name(name: str) -> Union[Project, Item]:
     if "/" in name:
         project_name, item_name = name.split("/", 1)
         project = Project(project_name)
         if not item_name.startswith("@"):
-            return Item(project, item_name, None, "")
+            return Item(project, name=item_name)
         else:
-            return Item(project, None, int(item_name[1:]), "")
+            return Item(project, id=int(item_name[1:]))
 
     else:
         project = Project(name)
@@ -358,14 +394,15 @@ def inc(name):
 @cli.command()
 @click.argument("name", type=str)
 @click.option("--state", "-s", type=str, default=None)
-def ls(name, state: Optional[str]):
+@click.option("--json", is_flag=True, default=False)
+def ls(name, state: Optional[str], json: bool):
     entity = from_name(name)
     if isinstance(entity, Project):
         project = entity
-        project.stat(state)
+        project.stat(state, json)
     else:
         item = entity
-        item.stat()
+        item.stat(json)
 
 
 if __name__ == "__main__":
