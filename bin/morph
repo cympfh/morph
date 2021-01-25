@@ -87,6 +87,10 @@ class Project:
         os.unlink(self.dbfile)
 
     def stat(self, state: Optional[str]):
+        if not self.is_exist():
+            click.echo(f"Error: Project {self.name} doesn't exist", err=True)
+            sys.exit(1)
+
         rdb = RDB(self.dbfile)
         items = rdb.execute(
             """
@@ -270,6 +274,10 @@ class Item:
         rdb.execute("DELETE FROM transitions WHERE id = ?", self.id)
 
     def stat(self):
+        if not self.project.is_exist():
+            click.echo(f"Error: Project {self.name} doesn't exist", err=True)
+            sys.exit(1)
+
         self.identify()
         click.echo(f"Name = {self.name}, id = @{self.id}")
         click.echo(f"description = {self.description}")
