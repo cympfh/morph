@@ -7,5 +7,5 @@
 
 The States after each transitions.
 
-| at       | id  | state                            | level |
-| DATETIME | INT | {"TODO", "WIP", "DONE", "ABORT"} | INT   |
+| tid | at       | id  | state                            | level |
+| INT | DATETIME | INT | {"TODO", "WIP", "DONE", "ABORT"} | INT   |

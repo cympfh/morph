@@ -93,3 +93,13 @@ Delete All Completely.
 morph rm <PROJECT_NAME>
 ```
 
+## Import & Export
+
+When a project `xxx` exists and `yyy` not exists,
+
+```bash
+$ morph export xxx > backup.db
+$ morph import yyy backup.db
+```
+
+`yyy` is a copy of `xxx` now.
