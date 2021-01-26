@@ -246,7 +246,7 @@ class Item:
             """
             SELECT at, id, state, level FROM transitions
             WHERE id = ?
-            ORDER BY at DESC
+            ORDER BY tid DESC
             LIMIT 1
             """,
             self.id,
