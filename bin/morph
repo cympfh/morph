@@ -312,29 +312,38 @@ class Item:
         rdb.execute("DELETE FROM items WHERE id = ?", self.id)
         rdb.execute("DELETE FROM transitions WHERE id = ?", self.id)
 
-    def stat(self):
+    def stat(self, as_json: bool):
         if not self.project.is_exist():
             click.echo(f"Error: Project {self.name} doesn't exist", err=True)
             sys.exit(1)
 
         self.identify()
-        click.echo(f"name = {self.name}\nid = @{self.id}")
-        click.echo(f"description = {self.description}")
-        click.echo(f"State = {self.state}\nLevel = {self.level}")
 
         rdb = RDB(self.project.dbfile)
         transitions = rdb.execute(
             """
-            SELECT * FROM transitions
+            SELECT at, state, level FROM transitions
             WHERE ID = ?
             ORDER BY at
             """,
             self.id,
         )
-        click.echo("History:")
-        for i, (at, _, state, level) in enumerate(transitions):
-            mark = click.style("  " if i == 0 else "->", fg="bright_yellow")
-            click.echo(f"{mark} {state}/{level} -- {at}")
+
+        if as_json:
+            res = {
+                "item": self,
+                "history": transitions,
+            }
+            print(json.dumps(res, cls=ItemJSONEncoder))
+
+        else:
+            click.echo(f"name = {self.name}\nid = @{self.id}")
+            click.echo(f"description = {self.description}")
+            click.echo(f"State = {self.state}\nLevel = {self.level}")
+            click.echo("History:")
+            for i, (at, state, level) in enumerate(transitions):
+                mark = click.style("  " if i == 0 else "->", fg="bright_yellow")
+                click.echo(f"{mark} {state}/{level} -- {at}")
 
 
 class ItemJSONEncoder(json.JSONEncoder):
