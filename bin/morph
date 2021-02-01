@@ -449,5 +449,53 @@ def cli_import(name, dbfile):
     rdb.load(dbfile)
 
 
+@cli.command("show-progress")
+@click.argument("name", type=str)
+@click.option("--since", default=None, help="inclusive since, YYYY-MM-DD")
+@click.option("--until", default=None, help="exclusive until, YYYY-MM-DD")
+@click.option("--json", "as_json", is_flag=True, default=False, help="dumping as JSON")
+def show_progress(name: str, since: Optional[str], until: Optional[str], as_json: bool):
+    entity = from_name(name)
+    if isinstance(entity, Item):
+        click.echo("Error: project name required", err=True)
+        sys.exit(1)
+
+    since = (since or "1970-01-01") + " 00:00:00"
+    until = (until or "3000-01-01") + " 00:00:00"
+
+    rdb = RDB(entity.dbfile)
+    res = rdb.execute(
+        f"""
+        SELECT items.id, items.name, transitions.state, transitions.level, transitions.at
+        FROM transitions
+        INNER JOIN items ON items.id = transitions.id
+        WHERE
+            (state = "WIP" OR state = "DONE")
+            AND
+            (? <= transitions.at AND transitions.at < ?)
+        ORDER BY tid DESC
+    """,
+        since,
+        until,
+    )
+
+    if as_json:
+        obj = [
+            {
+                "id": id,
+                "name": name,
+                "state": state,
+                "level": level,
+                "at": at,
+            }
+            for (id, name, state, level, at) in res
+        ]
+        print(json.dumps(obj))
+
+    else:
+        for (_, name, state, level, at) in res:
+            click.echo(f"{name}\t{state}\t{level}\t{at}")
+
+
 if __name__ == "__main__":
     cli()
