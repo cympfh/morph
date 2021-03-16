@@ -107,7 +107,7 @@ class Project:
         rows = rdb.execute(
             """
             SELECT
-                items.id, items.name, items.description, subq.state, subq.level
+                items.id, items.name, items.description, subq.state, subq.level, subq.at
             FROM items
             INNER JOIN (
                 SELECT * FROM transitions
@@ -125,8 +125,9 @@ class Project:
                 description=description,
                 state=state,
                 level=level,
+                at=at,
             )
-            for (id, name, description, state, level) in rows
+            for (id, name, description, state, level, at) in rows
         ]
 
         states = ["TODO", "WIP", "DONE", "ABORT"] if state is None else [state]
@@ -142,7 +143,7 @@ class Project:
                 click.secho(f"# {s} ({len(res[s])} items)", fg="bright_black")
                 for item in res[s]:
                     click.echo(
-                        f"{item.name} @{item.id}, description = {item.description}, level = {item.level}"
+                        f"{item.name} @{item.id}, description = {item.description}, level = {item.level}, at = {item.at}"
                     )
                 if len(res[s]) == 0:
                     click.secho("No items", fg="black")
@@ -156,6 +157,7 @@ class Item:
     description: Optional[str] = field(default=None)
     state: Optional[str] = field(default=None)
     level: Optional[int] = field(default=None)
+    at: Optional[str] = field(default=None)
 
     def __post_init__(self):
         assert self.name is not None or self.id is not None, "Specify Name or ID"
@@ -167,6 +169,7 @@ class Item:
             "description": self.description,
             "state": self.state,
             "level": self.level,
+            "at": self.at,
         }
 
     def touch(self):
@@ -495,6 +498,23 @@ def show_progress(name: str, since: Optional[str], until: Optional[str], as_json
     else:
         for (_, name, state, level, at) in res:
             click.echo(f"{name}\t{state}\t{level}\t{at}")
+
+
+@cli.command()
+@click.argument("name", type=str)
+def undo(name: str):
+    entity = from_name(name)
+    if isinstance(entity, Item):
+        click.echo("Error: project name required", err=True)
+        sys.exit(1)
+
+    rdb = RDB(entity.dbfile)
+    rdb.execute("""
+        DELETE FROM transitions
+        WHERE tid = (
+            SELECT tid FROM transitions ORDER BY tid DESC LIMIT 1
+        )
+    """)
 
 
 if __name__ == "__main__":
